@@ -1,0 +1,267 @@
+# =============================================================================
+# MarketForge -- .gitignore
+#
+# Rule of thumb for this repo (see plan.md): if it can be rebuilt from a seed +
+# `uv sync` + a DVC pull, or if it only exists on this machine, it stays out of
+# git. The synthetic market data is deterministic and byte-identical for a given
+# seed (M0.2), so generated datasets are never committed by hand -- a DVC
+# pointer is.
+#
+# Toolchain this list tracks: Python 3.12 via `uv`, Polars/pandas, PyArrow +
+# DuckDB, Parquet + Delta Lake, PySpark (local), Redpanda, Dagster, DVC,
+# pandera, Alpaca paper trading, pytest + pre-commit + GitHub Actions.
+#
+# Deliberately NOT ignored (do not add these here): uv.lock / pyproject.toml,
+# .python-version, Makefile, docker-compose.yml, .devcontainer/,
+# .pre-commit-config.yaml, .github/workflows/, .dvc/config, *.dvc pointer files,
+# .env.example, plan.md, and every schema/registry/ground-truth manifest.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+
+# -----------------------------------------------------------------------------
+# Virtual environments (uv / venv / conda)
+# -----------------------------------------------------------------------------
+.venv*/
+venv/
+env/
+ENV/
+virtualenv/
+.conda/
+# NOTE: .python-version and uv.lock are pinned on purpose -- keep them tracked.
+
+# -----------------------------------------------------------------------------
+# Packaging / build artifacts
+# -----------------------------------------------------------------------------
+build/
+dist/
+sdist/
+wheels/
+share/python-wheels/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+.pdm-build/
+
+# -----------------------------------------------------------------------------
+# Test / coverage / property-test caches
+# -----------------------------------------------------------------------------
+.pytest_cache/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+*.cover
+*.py,cover
+htmlcov/
+nosetests.xml
+
+# -----------------------------------------------------------------------------
+# Type checkers / linters / formatters (mypy, ruff, pyright)
+# -----------------------------------------------------------------------------
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.ruff_cache/
+.pyre/
+
+# -----------------------------------------------------------------------------
+# Jupyter (research notebooks, M4.x)
+# -----------------------------------------------------------------------------
+.ipynb_checkpoints/
+.virtual_documents/
+
+# -----------------------------------------------------------------------------
+# Secrets, credentials, broker keys (Alpaca paper / exchange sandbox, M5.2)
+# -----------------------------------------------------------------------------
+# Real values live only on the workstation / in CI secrets. Ship the template:
+# .env.example stays tracked.
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.token
+.netrc
+secrets/
+credentials.json
+*credentials*.json
+service-account*.json
+api_keys*.json
+alpaca_keys*.json
+
+# -----------------------------------------------------------------------------
+# Generated data / lakehouse storage
+# -----------------------------------------------------------------------------
+# Everything below is reproducible (seed) or pulled via DVC, and the lakehouse
+# is binary-heavy by design (Parquet + Delta, M1.2). DVC's own bookkeeping sits
+# in .dvc/ -- see the DVC section further down.
+data/
+lake/
+lakehouse/
+warehouse/
+delta/
+catalog/
+feature_store/
+features/
+synthetic/
+exports/
+backfill/
+reconciliation/
+
+# -----------------------------------------------------------------------------
+# Columnar / analytical file formats (always generated, never hand-edited)
+# -----------------------------------------------------------------------------
+*.parquet
+*.pq
+*.feather
+*.arrow
+*.ipc
+*.orc
+*.avro
+*.duckdb
+*.duckdb.wal
+*.ddb
+*.db
+*.sqlite
+*.sqlite3
+*.wal
+*.shm
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.zarr/
+
+# Delta Lake transaction logs travel *with* the table. They are ignored here
+# only because every table in this repo lives under one of the generated-data
+# roots above; the log is the table, not a cache -- never commit it by hand.
+_delta_log/
+
+# -----------------------------------------------------------------------------
+# PySpark (local mode, M3.2)
+# -----------------------------------------------------------------------------
+spark-warehouse/
+metastore_db/
+derby.log
+spark-events/
+.sparkStaging/
+*.crc
+hs_err_pid*
+*.hprof
+
+# -----------------------------------------------------------------------------
+# Redpanda / Kafka / Docker (M0.1 docker-compose, M3.3 streaming)
+# -----------------------------------------------------------------------------
+# Compose files and Dockerfiles are source and stay tracked; only the broker's
+# on-disk state (bind mounts) is machine-local.
+docker/volumes/
+volumes/
+redpanda-data/
+kafka-data/
+*.pid
+
+# -----------------------------------------------------------------------------
+# Dagster (M1.4 orchestration)
+# -----------------------------------------------------------------------------
+# $DAGSTER_HOME holds a local instance: run storage, event logs, telemetry.
+# Pipelines, assets, schedules and sensors live in the package and stay tracked.
+dagster_home/
+.dagster/
+logs/dagster/
+
+# -----------------------------------------------------------------------------
+# DVC (versioning / lineage -- M1.x, and the "why" for ignoring the data)
+# -----------------------------------------------------------------------------
+# Cache and scratch space are local; .dvc/config and every *.dvc pointer file
+# created at the repo root ARE tracked -- do not add them here.
+.dvc/cache/
+.dvc/tmp/
+.dvc/plots/
+.dvc/config.local
+.dvc/updater
+
+# -----------------------------------------------------------------------------
+# Backtest / pipeline / trading run output
+# -----------------------------------------------------------------------------
+# Intermediate artifacts of a run. Curated reports and the P&L journal that go
+# into the write-up are committed deliberately, per-file, not via these roots.
+runs/
+artifacts/
+runtime/
+live_state/
+paper_state/
+*.journal.jsonl
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+logs/
+*.log
+
+# -----------------------------------------------------------------------------
+# Editors / IDEs
+# -----------------------------------------------------------------------------
+# .devcontainer/ and the shared VS Code files below are project config.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*.swn
+*~
+\#*\#
+
+# -----------------------------------------------------------------------------
+# OS cruft (Windows host + WSL2/Ubuntu + macOS collaborators)
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.Trash-*
+ehthumbs.db
+Thumbs.db
+desktop.ini
+Desktop.ini
+$RECYCLE.BIN/
+Icon?
+*.lnk
+
+# -----------------------------------------------------------------------------
+# Misc scratch
+# -----------------------------------------------------------------------------
+*.bak
+*.orig
+*.rej
+*.tmp
+*.temp
+tmp/
+temp/
+plan.md
