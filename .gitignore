@@ -122,7 +122,7 @@ delta/
 catalog/
 feature_store/
 features/
-synthetic/
+/synthetic/
 exports/
 backfill/
 reconciliation/

@@ -1,0 +1,51 @@
+# MarketForge local services.
+#
+# Redpanda is a real server (a Kafka-compatible broker) — it is the only true
+# daemon here and is used from Phase 3 onward for streaming.
+#
+# DuckDB is an *embedded* engine; its official image is a CLI (interactive SQL
+# shell), not a server. We keep it as a persistent, mountable shell so `make up`
+# "starts DuckDB" per the M0.1 acceptance, and so you can `docker compose exec`
+# into it for ad-hoc SQL over the generated Parquet files. The generator itself
+# uses DuckDB in-process (`import duckdb`), not over the network.
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.3
+    container_name: marketforge-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --mode
+      - dev-container
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:29092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092,OUTSIDE://localhost:29092
+    ports:
+      - "9092:9092"   # Kafka API (internal)
+      - "29092:29092" # Kafka API (host)
+      - "8081:8081"   # schema registry
+      - "8082:8082"   # pandaproxy
+      - "9644:9644"   # admin
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  duckdb:
+    image: duckdb/duckdb:latest
+    container_name: marketforge-duckdb
+    # Interactive SQL shell (not a daemon). `stdin_open` + `tty` keep the prompt
+    # open when run in the foreground. Detached (`make up`) starts it; use
+    # `make duckdb` (or `docker compose exec duckdb duckdb /data/catalog.db`)
+    # for an interactive session.
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./data:/data
+    working_dir: /data
+    command: ["duckdb", "/data/catalog.db"]
