@@ -3,11 +3,14 @@
 # Redpanda is a real server (a Kafka-compatible broker) — it is the only true
 # daemon here and is used from Phase 3 onward for streaming.
 #
-# DuckDB is an *embedded* engine; its official image is a CLI (interactive SQL
-# shell), not a server. We keep it as a persistent, mountable shell so `make up`
-# "starts DuckDB" per the M0.1 acceptance, and so you can `docker compose exec`
-# into it for ad-hoc SQL over the generated Parquet files. The generator itself
-# uses DuckDB in-process (`import duckdb`), not over the network.
+# DuckDB is deliberately NOT a service here. It is an *embedded* engine whose
+# official image is a distroless CLI (a single `/duckdb` binary, no shell, no
+# server, no ports). Running it as a long-lived container is a trap:
+#   - `docker compose exec duckdb` fails ("/bin/sh: no such file or directory"),
+#   - the idle CLI holds an exclusive lock on catalog.db, so every other
+#     DuckDB client (including `make duckdb`) is blocked with a lock error.
+# Use DuckDB in-process from Python (as the generator and tests do) and the
+# one-off `make duckdb` shell for ad-hoc SQL.
 
 services:
   redpanda:
@@ -35,17 +38,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-
-  duckdb:
-    image: duckdb/duckdb:latest
-    container_name: marketforge-duckdb
-    # Interactive SQL shell (not a daemon). `stdin_open` + `tty` keep the prompt
-    # open when run in the foreground. Detached (`make up`) starts it; use
-    # `make duckdb` (or `docker compose exec duckdb duckdb /data/catalog.db`)
-    # for an interactive session.
-    stdin_open: true
-    tty: true
-    volumes:
-      - ./data:/data
-    working_dir: /data
-    command: ["duckdb", "/data/catalog.db"]

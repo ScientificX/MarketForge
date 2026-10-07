@@ -34,7 +34,7 @@ ci:
 > uv run mypy src
 > uv run pytest
 
-## Start the local services (Redpanda broker + DuckDB CLI shell).
+## Start the local services (Redpanda broker; DuckDB is embedded, see `duckdb` target).
 up:
 > docker compose up -d
 
@@ -54,7 +54,7 @@ verify:
 schema:
 > uv run marketforge schema
 
-## Open an interactive DuckDB SQL shell over the generated data.
+## Open an interactive DuckDB SQL shell (one-off container) over the generated data.
 duckdb:
 > docker run --rm -it -v "${PWD}/data:/data" -w /data duckdb/duckdb duckdb /data/catalog.db
 

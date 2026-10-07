@@ -27,7 +27,8 @@ flowchart TD
 ## Phase 0 (this scaffold)
 
 - **M0.1** — repo, `pyproject.toml`, devcontainer, `docker-compose.yml`
-  (Redpanda + DuckDB), CI (ruff + mypy + pytest), `Makefile`, README.
+  (Redpanda; DuckDB is embedded and used in-process / one-off shell), CI
+  (ruff + mypy + pytest), `Makefile`, README.
 - **M0.2** — a seeded, byte-deterministic synthetic equity data generator with a
   ground-truth manifest and production Parquet schemas.
 
@@ -37,7 +38,7 @@ flowchart TD
 # 1. Install Python 3.12 + dependencies (uv)
 uv sync
 
-# 2. Start local services (Redpanda broker + DuckDB shell)
+# 2. Start Redpanda (the only daemon — DuckDB is an embedded engine, no server)
 make up
 
 # 3. Generate synthetic data (deterministic: same seed -> identical bytes)
@@ -46,7 +47,11 @@ make gen
 # 4. Verify the generated data against its ground-truth manifest
 make verify
 
-# 5. Run the full CI gate (lint + format + type + tests)
+# 5. Ad-hoc SQL over the generated data (one-off DuckDB shell, e.g.
+#    SELECT count(*) FROM read_parquet('synthetic/bars.parquet');)
+make duckdb
+
+# 6. Run the full CI gate (lint + format + type + tests)
 make ci
 ```
 
