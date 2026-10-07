@@ -1,0 +1,40 @@
+# MarketForge local services.
+#
+# Redpanda is a real server (a Kafka-compatible broker) — it is the only true
+# daemon here and is used from Phase 3 onward for streaming.
+#
+# DuckDB is deliberately NOT a service here. It is an *embedded* engine whose
+# official image is a distroless CLI (a single `/duckdb` binary, no shell, no
+# server, no ports). Running it as a long-lived container is a trap:
+#   - `docker compose exec duckdb` fails ("/bin/sh: no such file or directory"),
+#   - the idle CLI holds an exclusive lock on catalog.db, so every other
+#     DuckDB client (including `make duckdb`) is blocked with a lock error.
+# Use DuckDB in-process from Python (as the generator and tests do) and the
+# one-off `make duckdb` shell for ad-hoc SQL.
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.3
+    container_name: marketforge-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --mode
+      - dev-container
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:29092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092,OUTSIDE://localhost:29092
+    ports:
+      - "9092:9092"   # Kafka API (internal)
+      - "29092:29092" # Kafka API (host)
+      - "8081:8081"   # schema registry
+      - "8082:8082"   # pandaproxy
+      - "9644:9644"   # admin
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
