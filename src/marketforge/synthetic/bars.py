@@ -48,14 +48,14 @@ def generate_bars(reference: list[dict], cfg: GeneratorConfig, rng: Generator) -
 
         volume = rng.integers(100_000, 10_000_000, size=n)
 
-        for d, o, h, l, c, v in zip(symbol_days, open_, high, low, close, volume):
+        for d, o, h, lo, c, v in zip(symbol_days, open_, high, low, close, volume, strict=True):
             rows.append(
                 {
                     "symbol": symbol,
                     "date": d,
                     "open": float(o),
                     "high": float(h),
-                    "low": float(l),
+                    "low": float(lo),
                     "close": float(c),
                     "volume": int(v),
                     "as_of": None,

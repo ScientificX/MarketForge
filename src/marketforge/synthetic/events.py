@@ -51,7 +51,12 @@ def apply_events(
                         r["low"] /= ratio
                         r["close"] /= ratio
                 events.append(
-                    {"symbol": sym, "event_type": etype, "event_date": d, "payload": {"ratio": ratio}}
+                    {
+                        "symbol": sym,
+                        "event_type": etype,
+                        "event_date": d,
+                        "payload": {"ratio": ratio},
+                    }
                 )
 
             elif etype == "dividend":
@@ -149,7 +154,12 @@ def apply_events(
                 reason = _DELIST_REASONS[int(rng.integers(0, len(_DELIST_REASONS)))]
                 bars[:] = [r for r in bars if not (r["symbol"] == sym and r["date"] > d)]
                 events.append(
-                    {"symbol": sym, "event_type": etype, "event_date": d, "payload": {"reason": reason}}
+                    {
+                        "symbol": sym,
+                        "event_type": etype,
+                        "event_date": d,
+                        "payload": {"reason": reason},
+                    }
                 )
 
             elif etype == "symbol_change":

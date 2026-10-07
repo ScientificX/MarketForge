@@ -9,13 +9,37 @@ from marketforge.config import UniverseConfig
 
 # Fixed word lists -> deterministic names/sectors with no external dependencies.
 COMPANY_NAMES = [
-    "Acme", "Globex", "Initech", "Umbrella", "Stark", "Wayne", "Cyberdyne",
-    "Vandelay", "Wonka", "Soylent", "Massive", "Pied Piper", "Hooli", "Tyrell",
-    "Weyland", "Aperture", "Black Mesa", "Oscorp", "LexCorp", "Waystar",
+    "Acme",
+    "Globex",
+    "Initech",
+    "Umbrella",
+    "Stark",
+    "Wayne",
+    "Cyberdyne",
+    "Vandelay",
+    "Wonka",
+    "Soylent",
+    "Massive",
+    "Pied Piper",
+    "Hooli",
+    "Tyrell",
+    "Weyland",
+    "Aperture",
+    "Black Mesa",
+    "Oscorp",
+    "LexCorp",
+    "Waystar",
 ]
 SECTORS = [
-    "Technology", "Financials", "Health Care", "Consumer Discretionary",
-    "Energy", "Industrials", "Materials", "Utilities", "Communication Services",
+    "Technology",
+    "Financials",
+    "Health Care",
+    "Consumer Discretionary",
+    "Energy",
+    "Industrials",
+    "Materials",
+    "Utilities",
+    "Communication Services",
     "Real Estate",
 ]
 

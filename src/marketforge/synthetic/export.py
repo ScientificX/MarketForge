@@ -25,7 +25,9 @@ def export(
 
     ref_table = pa.Table.from_pydict(_columns(reference, REFERENCE_FIELDS), schema=REFERENCE_SCHEMA)
     bars_table = pa.Table.from_pydict(_columns(bars, BARS_FIELDS), schema=BARS_SCHEMA)
-    manifest_table = pa.Table.from_pydict(_columns(manifest, MANIFEST_FIELDS), schema=MANIFEST_SCHEMA)
+    manifest_table = pa.Table.from_pydict(
+        _columns(manifest, MANIFEST_FIELDS), schema=MANIFEST_SCHEMA
+    )
 
     paths = {
         "reference": out_dir / "reference.parquet",
