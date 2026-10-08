@@ -86,7 +86,10 @@ These rules override convenience, speed, and any habit you bring with you.
 ## 3. Before you start any task
 
 1. **Read the map.** `plan.md` is the phased plan and definition of done;
-   `README.md` is the current status and quickstart; the files in `docs/thoughts/`
+   `README.md` is the current status and quickstart; `docs/architecture.md` is
+   the architecture document (components, data flow, invariants);
+   `docs/low-level-design.md` holds the application-programming-interface
+   contracts between the classes and objects; the files in `docs/thoughts/`
    record the reasoning behind each decision. Read the relevant ones before you
    act. Do not re-litigate a settled decision without new evidence; if you believe
    one must change, say so explicitly and record the reasoning.
@@ -148,6 +151,8 @@ shared working directory. The main checkout stays on `main`, clean, at all times
 | `plan.md` | The phased plan, milestones, and acceptance criteria. |
 | `README.md` | Project status, architecture, and quickstart. |
 | `agents.md` | This operating manual for coding agents. |
+| `docs/architecture.md` | The architecture document: components, data flow, and cross-cutting invariants. |
+| `docs/low-level-design.md` | The low-level design: the exact interface contract between every class, function, and data object. |
 | `docs/thoughts/` | The decision log — the "why" behind each choice. |
 | `src/marketforge/` | The Python package (source layout). |
 | `src/marketforge/cli.py` | The command-line interface (Typer). |
@@ -300,5 +305,28 @@ A change is finished only when all of the following hold:
 - Any plan or design text it introduces is written in full words with no
   abbreviations.
 - It respects the data-schema contract and the determinism guarantees.
+- Any contract it changes is reflected in `docs/architecture.md` and
+  `docs/low-level-design.md` in the same pull request.
 - It meets the acceptance criteria of the milestone it belongs to, and
   `README.md` or `plan.md` is updated if the change alters project state.
+
+---
+
+## 14. Living design documents
+
+- `docs/architecture.md` and `docs/low-level-design.md` are **normative, not
+  historical**. They describe the code as it is now, not as it was once planned.
+- Every change that alters a signature, a module boundary, a data object, the
+  generation sequence, a file artifact, a schema, a command-line-interface
+  command, or the random-draw order must update the affected design document in
+  the **same pull request**. The code and the documents must not drift.
+- The low-level design records the random-draw order as part of the byte-level
+  data contract; if a change reorders draws, say so in the pull request and in
+  the document, because it changes the bytes the seed produces.
+- When a decision is changed rather than implemented, record the reasoning in
+  `docs/thoughts/` as usual and update the design documents to match the new
+  decision.
+- The design documents contain Python code blocks, and ruff formats Python code
+  blocks inside Markdown files; keep those blocks in ruff's canonical form by
+  running `make fmt` (or `uv run ruff format`) before committing, so the full
+  gate (`make ci`) stays green.

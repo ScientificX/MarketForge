@@ -40,8 +40,11 @@ screener.
 | M4 — stat-arb screener + honest backtest (the point) | ⬜ planned |
 | M5 — paper / toy-money trading | ⬜ planned |
 
-See [`plan.md`](plan.md) for the full, phased plan and
-[`docs/thoughts/`](docs/thoughts/) for the reasoning behind each decision.
+See [`plan.md`](plan.md) for the full, phased plan,
+[`docs/architecture.md`](docs/architecture.md) for the architecture document,
+[`docs/low-level-design.md`](docs/low-level-design.md) for the interface
+contracts between classes and objects, and [`docs/thoughts/`](docs/thoughts/)
+for the reasoning behind each decision.
 
 ## Architecture
 
