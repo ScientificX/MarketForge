@@ -34,7 +34,7 @@ screener.
 | Milestone | Status |
 | --- | --- |
 | M0.1 — repo, toolchain, devcontainer, CI, Makefile | ✅ done |
-| M0.2 — seeded synthetic generator + ground-truth manifest | ✅ done |
+| M0.2 — seeded synthetic generator + ground-truth manifest | ✅ done (generator, manifest, schemas, determinism; the crowdedness axis is outstanding — see [07](docs/thoughts/07-synthetic-market-structure.md)) |
 | M1–M2 — lakehouse + historical reconstructor | ⬜ planned |
 | M3 — tick processing + feature store | ⬜ planned |
 | M4 — stat-arb screener + honest backtest (the point) | ⬜ planned |
