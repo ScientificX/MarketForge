@@ -35,7 +35,7 @@ screener.
 | --- | --- |
 | M0.1 — repo, toolchain, devcontainer, CI, Makefile | ✅ done |
 | M0.2 — seeded synthetic generator + ground-truth manifest | ✅ done (generator, manifest, schemas, determinism, and the crowdedness axis) |
-| M1–M2 — lakehouse + historical reconstructor | ⬜ planned |
+| M1–M2 — lakehouse + historical reconstructor | 🔄 M1.1 done (schema contracts, dataset registry, ingestion); M1.2–M2 planned |
 | M3 — tick processing + feature store | ⬜ planned |
 | M4 — stat-arb screener + honest backtest (the point) | ⬜ planned |
 | M5 — paper / toy-money trading | ⬜ planned |
@@ -83,7 +83,13 @@ make verify
 # 5. Ad-hoc SQL over the generated data
 make duckdb
 
-# 6. Full CI gate (lint + format + type + tests)
+# 6. List the dataset registry contracts (schema, partitioning, point-in-time, lineage)
+make datasets
+
+# 7. Land the generated bars in the lakehouse layout, per the registry contract
+make ingest
+
+# 8. Full CI gate (lint + format + type + tests)
 make ci
 ```
 
@@ -101,6 +107,13 @@ restatements, data gaps, bad ticks, and late/backfilled records — so later pha
 have provable ground truth to reconstruct against. Volume and price are tiered
 across the crowdedness axis, so the tier can be recovered from the bars alone;
 the tier itself is recorded only in the coverage artifact.
+
+The Phase 1 dataset registry (`src/marketforge/catalog.py`) declares the contract
+for every dataset — schema, version, partitioning, point-in-time field, and
+lineage — and `marketforge ingest` lands a generated dataset in the lakehouse
+layout (`lake/` by default, hive-partitioned by symbol where the contract says
+so). The tick, quote, and event contracts are defined now so real sources can
+drop in later without schema churn.
 
 ## Environment
 
