@@ -243,8 +243,15 @@ and the future real-data ingestion layer.
 
 ```python
 EVENT_TYPES: tuple[str, ...] = (
-    "split", "dividend", "restatement", "bad_tick", "late_record",
-    "backfill", "data_gap", "delisting", "symbol_change",
+    "split",
+    "dividend",
+    "restatement",
+    "bad_tick",
+    "late_record",
+    "backfill",
+    "data_gap",
+    "delisting",
+    "symbol_change",
 )
 ```
 
@@ -571,8 +578,10 @@ attribute; comparison is therefore unit-aware and timezone-agnostic.
 ## 15. `marketforge.cli` and `__main__`
 
 ```python
-app = typer.Typer(help="MarketForge — statistical arbitrage in less crowded markets "
-                       "(Phase 0: synthetic data foundation)")
+app = typer.Typer(
+    help="MarketForge — statistical arbitrage in less crowded markets "
+    "(Phase 0: synthetic data foundation)"
+)
 ```
 
 The console script `marketforge` (declared in `pyproject.toml` as
