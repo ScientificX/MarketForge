@@ -167,6 +167,11 @@ point-in-time/survivorship-bias logic is source-agnostic.
 **M1.1 — Ingestion + schema contracts + dataset registry**
 - Unified schemas (bars, ticks, quotes, reference, events); a registry
   (`name → schema, partitioning, point-in-time, lineage`).
+- Status: delivered — the unified schema contracts (bars, ticks, quotes,
+  reference, events, plus the Phase 0 coverage and manifest ground-truth
+  datasets) live in `schemas.py`; the registry lives in `catalog.py`; and
+  `marketforge ingest` lands a dataset in the lakehouse layout per its registry
+  contract, rejecting schema mismatches.
 
 **M1.2 — Storage layer**
 - Parquet + Delta, partitioned (symbol/date), versioned, time-travel.
@@ -295,7 +300,7 @@ cross-sectional structure described in
 
 ## Next step
 
-Phase 1 (ingestion + schema contracts + dataset registry), beginning with
-milestone M1.1: unified schemas (bars, ticks, quotes, reference, events), a
-dataset registry (`name → schema, partitioning, point-in-time, lineage`), and
-the ingestion path that lands data in the lakehouse layout.
+Phase 1 continues with milestone M1.2 (storage layer: Parquet + Delta Lake,
+partitioned by symbol and date, versioned, with time-travel) and milestone M1.3
+(quality gates: pandera validation plus anomaly detection, where bad data is
+blocked rather than merely logged).

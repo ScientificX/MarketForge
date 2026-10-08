@@ -3,7 +3,7 @@
 # portable. Requires GNU Make >= 4.0 (WSL2/Ubuntu and GitHub Actions both ship it).
 .RECIPEPREFIX = >
 
-.PHONY: sync test lint type fmt ci up down gen verify schema duckdb clean
+.PHONY: sync test lint type fmt ci up down gen verify schema duckdb datasets ingest clean
 
 ## Install the pinned environment (Python 3.12 + all deps).
 sync:
@@ -54,10 +54,18 @@ verify:
 schema:
 > uv run marketforge schema
 
+## List the dataset registry contracts.
+datasets:
+> uv run marketforge datasets
+
+## Land the generated bars in the lakehouse layout (per the registry contract).
+ingest:
+> uv run marketforge ingest bars
+
 ## Open an interactive DuckDB SQL shell (one-off container) over the generated data.
 duckdb:
 > docker run --rm -it -v "${PWD}/data:/data" -w /data duckdb/duckdb duckdb /data/catalog.db
 
 ## Remove generated data and caches.
 clean:
-> rm -rf data .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov
+> rm -rf data lake .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov

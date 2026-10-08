@@ -29,15 +29,19 @@ command-line interface (cli.py)
   ├─ gen ──> generate (synthetic/generate.py)
   │            ├─ make_rng (rng.py)
   │            ├─ build_reference (synthetic/universe.py)
+  │            ├─ build_coverage (synthetic/coverage.py)
   │            ├─ generate_bars (synthetic/bars.py)
   │            ├─ apply_events (synthetic/events.py)
   │            ├─ build_manifest + manifest_to_json (synthetic/manifest.py)
   │            └─ export (synthetic/export.py)
   ├─ verify ─> verify (verify.py)
-  └─ schema ─> production schemas (schemas.py)
+  ├─ schema ─> production schemas (schemas.py)
+  ├─ datasets ─> dataset registry (catalog.py)
+  └─ ingest ─> ingest_dataset (ingest.py) ─> dataset registry (catalog.py)
 
 calendar.py is called by universe, bars, and events.
-schemas.py is imported by events, export, verify, and the command-line interface.
+schemas.py is imported by events, export, verify, catalog, ingest, and the
+command-line interface.
 config.py supplies the configuration objects consumed by everything above.
 ```
 
@@ -56,23 +60,24 @@ function of the seed:
 1. No module creates its own generator, draws from a module-level generator, or
    uses unseeded randomness.
 2. The number and order of draws per input row are fixed; conditional logic may
-   skip a draw for an entire symbol (see sections 8 and 9) but never reorders
-   draws.
+   skip a draw for an entire symbol (see sections 8 through 11) but never
+   reorders draws.
 
 The full per-module draw order is:
 
 | Stage | Draws per symbol | Section |
 | --- | --- | --- |
 | Universe | one integer draw for the listing date | 8 |
-| Bars | one uniform (start price), one uniform (volatility), then per bar: normal (return), normal (open gap), normal (high), normal (low), integer (volume) | 9 |
-| Events | per event type in `EVENT_TYPES` order: one uniform (decision), then the type-specific parameter draws | 10 |
+| Coverage | one uniform (market capitalisation), one uniform (average daily volume), in ascending symbol order | 9 |
+| Bars | one uniform (start price, within the tier's slice), one uniform (volatility), then per bar: normal (return), normal (open gap), normal (high), normal (low), normal (volume noise) | 10 |
+| Events | per event type in `EVENT_TYPES` order: one uniform (decision), then the type-specific parameter draws | 11 |
 
 ### 3.2 Row dictionary shapes
 
-These shapes are the shared vocabulary between `universe`, `bars`, `events`,
-`manifest`, `export`, and `verify`. A row that misses a key or changes a type is
-a contract violation; `export` catches type mismatches by building Arrow tables
-against the production schemas.
+These shapes are the shared vocabulary between `universe`, `coverage`, `bars`,
+`events`, `manifest`, `export`, and `verify`. A row that misses a key or changes
+a type is a contract violation; `export` catches type mismatches by building
+Arrow tables against the production schemas.
 
 **Reference row** (produced by `build_reference`, consumed by `generate_bars`,
 `apply_events`, `export`, and `verify`):
@@ -97,8 +102,18 @@ against the production schemas.
 | `high` | `float` | Highest price of the day. |
 | `low` | `float` | Lowest price of the day. |
 | `close` | `float` | Closing price. |
-| `volume` | `int` | Traded volume, non-negative. |
+| `volume` | `int` | Traded volume, positive (at least one share). |
 | `as_of` | `datetime` or `None` | Delivery timestamp; `None` for on-time records. |
+
+**Coverage row** (produced by `build_coverage`, consumed by `generate_bars`,
+`export`, and `verify`):
+
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `symbol` | `str` | The reference symbol the row applies to. |
+| `tier` | `str` | The crowdedness tier, one of `CoverageConfig.tiers` in order. |
+| `market_cap` | `float` | Latent market capitalisation drawn from the tier's slice. |
+| `avg_daily_volume` | `int` | Latent average daily volume drawn from the tier's slice; the anchor that daily bar volume is noise around. |
 
 **Event row** (produced by `apply_events`, consumed by `build_manifest`):
 
@@ -107,7 +122,7 @@ against the production schemas.
 | `symbol` | `str` | The symbol the event applies to; for a symbol change, the original symbol. |
 | `event_type` | `str` | One of `EVENT_TYPES`. |
 | `event_date` | `date` | The day the event takes effect. |
-| `payload` | `dict` | Type-specific fields; see the per-type tables in section 10. |
+| `payload` | `dict` | Type-specific fields; see the per-type tables in section 11. |
 
 **Manifest row** (produced by `build_manifest`, consumed by `export`,
 `manifest_to_json`, and `verify`):
@@ -122,13 +137,15 @@ against the production schemas.
 
 ### 3.3 File artifacts
 
-`generate` always writes these four files into the output directory; names are
+`generate` always writes these six files into the output directory; names are
 part of the contract:
 
 | File | Written by | Schema or format |
 | --- | --- | --- |
 | `reference.parquet` | `export` | `REFERENCE_SCHEMA` |
 | `bars.parquet` | `export` | `BARS_SCHEMA` |
+| `coverage.parquet` | `export` | `COVERAGE_SCHEMA` |
+| `coverage.json` | `generate` via `coverage_to_json` | deterministic JSON: sorted keys, two-space indent, trailing newline; carries the tier list in crowded-to-thin order |
 | `manifest.parquet` | `export` | `MANIFEST_SCHEMA` |
 | `manifest.json` | `generate` via `manifest_to_json` | deterministic JSON: sorted keys, two-space indent, trailing newline |
 
@@ -138,10 +155,14 @@ part of the contract:
   start is after its end) or a data shape that does not match a production
   schema raises an exception at generation time. The generator does not swallow
   errors into a report.
+- **Ingestion raises on contract violations.** `ingest_dataset` raises
+  `SchemaContractError` when the source file's schema signature does not match
+  the registry contract, and `KeyError` for an unregistered dataset name (see
+  section 17).
 - **Verification reports.** Data problems never raise; `verify` returns
   `(False, report lines)`. Only missing files short-circuit the check.
-- **The command-line interface maps these.** `gen` failures surface as Typer
-  errors (non-zero exit); `verify` failures exit with code 1.
+- **The command-line interface maps these.** `gen` and `ingest` failures surface
+  as Typer errors (non-zero exit); `verify` failures exit with code 1.
 
 ## 4. `marketforge.config` — configuration objects
 
@@ -170,13 +191,40 @@ class UniverseConfig:
 **Precondition:** `start` must not be after `end`; otherwise the listing-date
 draw in `build_reference` raises (see section 8).
 
-### 4.2 `GeneratorConfig`
+### 4.2 `CoverageConfig`
+
+```python
+@dataclass(frozen=True)
+class CoverageConfig:
+    tiers: tuple[str, ...] = ("mega", "large", "mid", "small", "micro")
+    adv_lo: int = 20_000
+    adv_hi: int = 20_000_000
+    market_cap_lo: float = 20_000_000.0
+    market_cap_hi: float = 200_000_000_000.0
+    volume_noise: float = 0.35
+```
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `tiers` | `tuple[str, ...]` | `("mega", "large", "mid", "small", "micro")` | Tier labels, most crowded first; also the ground-truth order `verify` checks. |
+| `adv_lo` / `adv_hi` | `int` | `20_000` / `20_000_000` | The average-daily-volume span, sliced log-spaced into one disjoint range per tier. |
+| `market_cap_lo` / `market_cap_hi` | `float` | `2e7` / `2e11` | The market-capitalisation span, sliced the same way. |
+| `volume_noise` | `float` | `0.35` | Log-normal standard deviation of daily volume around the tier's average daily volume. |
+
+**Contract notes.** The tier list's order is part of the data contract: slice 0
+is the top (most crowded) of every span and the last tier the bottom, so tier
+observables cannot cross by construction. The tier is ground truth and lives
+only in the coverage artifacts — it is never written into the bars or the
+reference table.
+
+### 4.3 `GeneratorConfig`
 
 ```python
 @dataclass(frozen=True)
 class GeneratorConfig:
     seed: int = 42
     universe: UniverseConfig = UniverseConfig()
+    coverage: CoverageConfig = CoverageConfig()
     start_price_range: tuple[float, float] = (5.0, 500.0)
     annual_vol: tuple[float, float] = (0.15, 0.60)
     annual_drift: float = 0.05
@@ -187,7 +235,8 @@ class GeneratorConfig:
 | --- | --- | --- | --- |
 | `seed` | `int` | `42` | The one seed for the whole run. |
 | `universe` | `UniverseConfig` | defaults above | Universe window. |
-| `start_price_range` | `tuple[float, float]` | `(5.0, 500.0)` | Uniform range for each symbol's starting price. |
+| `coverage` | `CoverageConfig` | defaults above | Crowdedness-axis tiers and spans. |
+| `start_price_range` | `tuple[float, float]` | `(5.0, 500.0)` | Global starting-price span, sliced per tier for each symbol's starting price. |
 | `annual_vol` | `tuple[float, float]` | `(0.15, 0.60)` | Uniform range for each symbol's annual volatility. |
 | `annual_drift` | `float` | `0.05` | Shared annual log-drift for the random walk. |
 | `event_rates` | `dict[str, float]` | see below | Per-event-type probability that an event applies to a symbol. |
@@ -216,7 +265,7 @@ def make_rng(seed: int) -> numpy.random.Generator
 
 **Contract.** Returns `numpy.random.default_rng(seed)`. There is exactly one such
 object per run, created by `generate` and threaded through the generator modules.
-Modules draw from it in the fixed order documented in sections 8 through 10. The
+Modules draw from it in the fixed order documented in sections 8 through 11. The
 returned object carries the whole state of the run; nothing else does.
 
 ## 6. `marketforge.calendar`
@@ -294,12 +343,72 @@ treating the change as a change to the byte-level data contract.
 | `event_date` | `date32` | Effective day. |
 | `payload` | `string` | JSON payload with sorted keys. |
 
-### 7.5 Field-order helpers and the evolution protocol
+### 7.5 `COVERAGE_SCHEMA`
+
+| Field | Arrow type | Meaning |
+| --- | --- | --- |
+| `symbol` | `string` | The reference symbol. |
+| `tier` | `string` | The crowdedness tier, one of `CoverageConfig.tiers`. |
+| `market_cap` | `float64` | Latent market capitalisation. |
+| `avg_daily_volume` | `int64` | Latent average daily volume. |
+
+This is the ground-truth crowdedness axis, a separate artifact on purpose: the
+tier must never become a column of the production schemas (reference, bars,
+manifest), so Phase 4's crowdedness ranking can be tested for whether it
+recovers the tier from observables alone.
+
+### 7.6 Phase 1 unified contracts: `TICKS_SCHEMA`, `QUOTES_SCHEMA`, `EVENTS_SCHEMA`
+
+These datasets are defined now, in milestone M1.1, so real sources can drop into
+the ingestion layer later without schema churn. The Phase 0 generator does not
+produce them yet.
+
+| Schema | Fields (Arrow types) |
+| --- | --- |
+| `TICKS_SCHEMA` | `symbol` string; `ts` timestamp(us); `price` float64; `size` int64; `side` string; `venue` string; `as_of` timestamp(us) |
+| `QUOTES_SCHEMA` | `symbol` string; `ts` timestamp(us); `bid` float64; `ask` float64; `bid_size` int64; `ask_size` int64; `venue` string; `as_of` timestamp(us) |
+| `EVENTS_SCHEMA` | `event_id` string; `symbol` string; `event_type` string; `event_date` date32; `payload` string; `source` string; `as_of` timestamp(us) |
+
+`EVENTS_SCHEMA` is the production corporate-action event table, distinct from
+the Phase 0 `MANIFEST_SCHEMA` (generator ground truth): it carries `source` and
+the point-in-time delivery field `as_of`.
+
+### 7.7 The name-to-schema map and the schema signature
+
+```python
+SCHEMAS: dict[str, pa.Schema] = {
+    "reference": REFERENCE_SCHEMA,
+    "bars": BARS_SCHEMA,
+    "coverage": COVERAGE_SCHEMA,
+    "manifest": MANIFEST_SCHEMA,
+    "ticks": TICKS_SCHEMA,
+    "quotes": QUOTES_SCHEMA,
+    "events": EVENTS_SCHEMA,
+}
+
+
+def schema_signature(schema: pa.Schema) -> list[tuple[str, str]]
+```
+
+**Contract.** `SCHEMAS` is the canonical name-to-schema map: the dataset
+registry (`catalog.py`) and the ingestion layer look schemas up here by name.
+`schema_signature` returns `(field name, type string)` pairs, normalizing every
+timestamp field to `timestamp[unit]` because the Parquet round trip may alter
+the timezone attribute; comparison is therefore unit-aware and
+timezone-agnostic. Nullability is deliberately excluded from the signature:
+Parquet does not persist Arrow nullability, so requiredness is enforced by the
+quality gate, never through storage nullability.
+
+### 7.8 Field-order helpers and the evolution protocol
 
 ```python
 REFERENCE_FIELDS = ["symbol", "name", "sector", "listing_date", "currency", "exchange"]
 BARS_FIELDS = ["symbol", "date", "open", "high", "low", "close", "volume", "as_of"]
+COVERAGE_FIELDS = ["symbol", "tier", "market_cap", "avg_daily_volume"]
 MANIFEST_FIELDS = ["event_id", "symbol", "event_type", "event_date", "payload"]
+TICKS_FIELDS = ["symbol", "ts", "price", "size", "side", "venue", "as_of"]
+QUOTES_FIELDS = ["symbol", "ts", "bid", "ask", "bid_size", "ask_size", "venue", "as_of"]
+EVENTS_FIELDS = ["event_id", "symbol", "event_type", "event_date", "payload", "source", "as_of"]
 ```
 
 These lists are derived from the schemas and are the column order `export` uses
@@ -346,25 +455,73 @@ suffix guarantees uniqueness regardless of name collisions.
 `listing_date` always inside the listing window; every row carries the configured
 currency and exchange.
 
-## 9. `marketforge.synthetic.bars`
+## 9. `marketforge.synthetic.coverage`
 
 ```python
-def generate_bars(reference: list[dict], cfg: GeneratorConfig, rng: Generator) -> list[dict]
+def build_coverage(reference: list[dict], cfg: GeneratorConfig, rng: Generator) -> list[dict]
+```
+
+```python
+def coverage_by_symbol(coverage: list[dict]) -> dict[str, dict]
+```
+
+```python
+def tier_price_slice(cfg: GeneratorConfig, tier: str) -> tuple[float, float]
+```
+
+```python
+def coverage_to_json(rows: list[dict], cfg: GeneratorConfig) -> str
+```
+
+**Contract.** `build_coverage` assigns every reference symbol a crowdedness tier
+and latent values. Tiers are assigned round-robin in ascending symbol order, so
+every tier is populated evenly; the tier list is ordered most crowded first. For
+each symbol, `market_cap` and `avg_daily_volume` are drawn from the symbol's
+tier's log-spaced, disjoint slice of the configured spans. `coverage_by_symbol`
+indexes rows by symbol. `tier_price_slice` returns the tier's slice of
+`cfg.start_price_range` for `generate_bars` to draw the starting price from.
+`coverage_to_json` serializes the ground truth deterministically: a document
+`{"seed": ..., "tiers": [...], "symbols": [...]}`, sorted keys, two-space
+indent, trailing newline — byte-identical across runs.
+
+**Draws.** Two per symbol, in ascending symbol order: one uniform (market
+capitalisation), then one uniform (average daily volume).
+
+**Slice rule** (`_log_slice`, private). A span is cut into `n_tiers` disjoint
+log-spaced slices, slice 0 at the top: with `step = (log_hi - log_lo) / n_tiers`,
+slice `i` is `[exp(log_hi - (i + 1) * step), exp(log_hi - i * step))`. Adjacent
+slices touch without overlapping, and every slice lies entirely above the next,
+so tier observables cannot cross by construction.
+
+**Postconditions.** One row per reference symbol; every row carries a declared
+tier; `market_cap` and `avg_daily_volume` lie inside their tier's slice.
+
+## 10. `marketforge.synthetic.bars`
+
+```python
+def generate_bars(
+    reference: list[dict], coverage: list[dict], cfg: GeneratorConfig, rng: Generator
+) -> list[dict]
 ```
 
 **Contract.** Raw as-traded daily bars from a seeded geometric random walk, one
-walk per symbol. Corporate actions are applied later by `apply_events`; these
-bars are what the market actually traded, before adjustment.
+walk per symbol, with the crowdedness axis baked into the observables: the
+starting price is drawn from the symbol's tier slice of `start_price_range` and
+daily volume is log-normal noise around the symbol's tier-anchored average daily
+volume. Corporate actions are applied later by `apply_events`; these bars are
+what the market actually traded, before adjustment.
 
 **Algorithm.**
 
-1. `days = business_days(cfg.universe.start, cfg.universe.end)`.
+1. `days = business_days(cfg.universe.start, cfg.universe.end)`; index the
+   coverage rows by symbol.
 2. For each reference row in ascending `symbol` order:
    - `symbol_days` = the days at or after the symbol's listing date.
    - If there are no such days, the symbol contributes no bars and consumes **no
      draws** (the check happens before any draw).
    - Otherwise `n = len(symbol_days)` and the per-symbol parameters are:
-     - `start_price` = one `rng.uniform(*cfg.start_price_range)` draw;
+     - `price_lo, price_hi = tier_price_slice(cfg, tier)` for the symbol's tier;
+     - `start_price` = one `rng.uniform(price_lo, price_hi)` draw;
      - `sigma_annual` = one `rng.uniform(*cfg.annual_vol)` draw;
      - `sigma_daily = sigma_annual / sqrt(252)`;
      - `mu_daily = cfg.annual_drift / 252 - 0.5 * sigma_daily ** 2`.
@@ -375,19 +532,21 @@ bars are what the market actually traded, before adjustment.
      by the same small gap).
    - `high = max(open, close) * (1 + |normal(0.0, 0.005)|)`;
      `low = min(open, close) * (1 - |normal(0.0, 0.005)|)` per day.
-   - `volume` = one `rng.integers(100_000, 10_000_000)` per day.
+   - `volume = avg_daily_volume * exp(normal(0.0, cfg.coverage.volume_noise))`
+     per day, clipped to at least one share and stored as `int`.
 3. Sort the rows by `(symbol, date)`.
 
-**Draws per symbol with `n` trading days:** one uniform, one uniform, `n`
-normals (returns), `n` normals (open gaps), `n` normals (high), `n` normals
-(low), `n` integers (volume) — in exactly that order.
+**Draws per symbol with `n` trading days:** one uniform (start price), one
+uniform (volatility), `n` normals (returns), `n` normals (open gaps), `n`
+normals (high), `n` normals (low), `n` normals (volume) — in exactly that order.
 
 **Postconditions.** Rows sorted by `(symbol, date)`; no bar before a symbol's
 listing date; `as_of` is `None` on every bar; `high >= max(open, close)`;
-`low <= min(open, close)`; `low > 0`; `volume >= 0`. The `(symbol, date)` pair
-is unique.
+`low <= min(open, close)`; `low > 0`; `volume >= 1`. The `(symbol, date)` pair
+is unique. The tier is not stored on the bar row; it is recoverable from the
+volume distribution alone.
 
-## 10. `marketforge.synthetic.events`
+## 11. `marketforge.synthetic.events`
 
 ```python
 def apply_events(
@@ -399,7 +558,7 @@ def apply_events(
 mutated bars and the list of applied event rows. Only events that were actually
 applied are recorded, so every manifest record is verifiable against the data.
 
-### 10.1 Iteration and decision order
+### 11.1 Iteration and decision order
 
 1. `days = business_days(cfg.universe.start, cfg.universe.end)`.
 2. For each reference row in ascending `symbol` order, let `sym_days` be the
@@ -419,7 +578,7 @@ target bar (impossible for the current event order, but guarded defensively),
 its draws are consumed and the event is recorded neither in the data nor in the
 manifest.
 
-### 10.2 Event-type contracts
+### 11.2 Event-type contracts
 
 For every event, the position `pos` selects the effective date `d = sym_days[pos]`.
 
@@ -455,7 +614,7 @@ the events list is in application order and contains only applied events.
 **Helper.** `_find(bars, symbol, d) -> dict | None` (private) returns the bar at
 exactly `(symbol, d)` or `None`.
 
-## 11. `marketforge.synthetic.manifest`
+## 12. `marketforge.synthetic.manifest`
 
 ```python
 def build_manifest(events: list[dict], seed: int) -> list[dict]
@@ -482,11 +641,15 @@ document `{"seed": <seed>, "events": [...]}` where each event carries
 newline. Byte-identical across runs and directories; covered by
 `tests/test_determinism.py`.
 
-## 12. `marketforge.synthetic.export`
+## 13. `marketforge.synthetic.export`
 
 ```python
 def export(
-    reference: list[dict], bars: list[dict], manifest: list[dict], out_dir: Path
+    reference: list[dict],
+    bars: list[dict],
+    coverage: list[dict],
+    manifest: list[dict],
+    out_dir: Path,
 ) -> dict[str, Path]
 ```
 
@@ -497,19 +660,19 @@ def export(
    `pa.Table.from_pydict(_columns(rows, FIELDS), schema=SCHEMA)`. A value whose
    type does not fit the schema raises here — this is the write-time enforcement
    of the schema contract.
-3. Writes `reference.parquet`, `bars.parquet`, and `manifest.parquet` with
-   `pq.write_table`.
-4. Returns `{"reference": Path, "bars": Path, "manifest": Path}`.
+3. Writes `reference.parquet`, `bars.parquet`, `coverage.parquet`, and
+   `manifest.parquet` with `pq.write_table`.
+4. Returns `{"reference": Path, "bars": Path, "coverage": Path, "manifest": Path}`.
 
 **Helper.** `_columns(rows, names)` (private) returns
 `{name: [r[name] for r in rows] for name in names}` — every schema field is
 always present as a column, even for empty input, so empty tables still carry
 the full schema.
 
-**Postconditions.** The three files exist, and their schemas match the
+**Postconditions.** The four files exist, and their schemas match the
 production schemas (as `verify` checks them).
 
-## 13. `marketforge.synthetic.generate`
+## 14. `marketforge.synthetic.generate`
 
 ```python
 def generate(cfg: GeneratorConfig, out_dir: Path) -> dict[str, Path]
@@ -520,62 +683,163 @@ objects — is:
 
 1. `rng = make_rng(cfg.seed)`
 2. `reference = build_reference(cfg.universe, rng)`
-3. `bars = generate_bars(reference, cfg, rng)`
-4. `bars, events = apply_events(bars, reference, cfg, rng)`
-5. `manifest = build_manifest(events, cfg.seed)`
-6. `paths = export(reference, bars, manifest, out_dir)`
-7. Write `manifest.json` from `manifest_to_json(manifest, cfg.seed)` and add the
-   `"manifest_json"` key to the returned mapping.
+3. `coverage = build_coverage(reference, cfg, rng)`
+4. `bars = generate_bars(reference, coverage, cfg, rng)`
+5. `bars, events = apply_events(bars, reference, cfg, rng)`
+6. `manifest = build_manifest(events, cfg.seed)`
+7. `paths = export(reference, bars, coverage, manifest, out_dir)`
+8. Write `manifest.json` from `manifest_to_json(manifest, cfg.seed)` and
+   `coverage.json` from `coverage_to_json(coverage, cfg)`, adding the
+   `"manifest_json"` and `"coverage_json"` keys to the returned mapping.
 
-Returns the path mapping with the four keys `reference`, `bars`, `manifest`, and
-`manifest_json`. Any change to this sequence — including the order of steps or
-the threading of the random number generator — changes the bytes the seed
-produces and is a breaking change to the data contract.
+Returns the path mapping with the six keys `reference`, `bars`, `coverage`,
+`manifest`, `manifest_json`, and `coverage_json`. Any change to this sequence —
+including the order of steps or the threading of the random number generator —
+changes the bytes the seed produces and is a breaking change to the data
+contract.
 
-## 14. `marketforge.verify`
+## 15. `marketforge.verify`
 
 ```python
 def verify(data_dir: Path) -> tuple[bool, list[str]]
 ```
 
 **Contract.** Re-reads the artifacts and checks schema conformance, bar
-invariants, and manifest consistency. Returns `(ok, report_lines)`; it never
-raises for bad data.
+invariants, coverage consistency and tier recoverability, and manifest
+consistency. Returns `(ok, report_lines)`; it never raises for bad data.
 
 **Check order.**
 
-1. All four files must exist; the first missing file returns
+1. All six files must exist; the first missing file returns
    `(False, ["MISSING: <path>"])` immediately.
 2. The schema signature of each Parquet file must equal the production schema
    signature (field names and types; timestamp timezones are normalized away —
    see `_signature`).
 3. Per bar row: the `(symbol, date)` pair must be unique; `high >= max(open,
    close)`; `low <= min(open, close)`; `low > 0`; `volume >= 0`.
-4. Every manifest event must satisfy its event-type rule (section 14.1).
+4. Coverage must be consistent: every reference symbol has exactly one coverage
+   row with a declared tier, market capitalisation and average daily volume are
+   positive, and the median daily volume per tier orders the tiers exactly as
+   the coverage JSON declares them, most crowded first (tier recoverability;
+   tiers with no surviving bars are skipped, not failed).
+5. Every manifest event must satisfy its event-type rule (section 15.1),
+   resolved through the manifest's recorded event sequence.
 
 The report's first line is always the summary
-`bars=<n> reference=<n> events=<n>`; every failure appends one line of detail.
+`bars=<n> reference=<n> coverage=<n> events=<n>`; every failure appends one
+line of detail.
 
-### 14.1 `_verify_event` rules
+**Cross-event resolution.** Events are applied in `EVENT_TYPES` order, so an
+earlier event's bar can be deleted by a later data gap, trimmed by a later
+delisting, or renamed by a later symbol change. Before verification, the
+manifest is scanned into three indexes: renames (old symbol to change date and
+new symbol), gap days, and delisting dates. Bar-reading event rules resolve the
+symbol at the event date through the renames; when the bar is absent but the
+absence is explained by a recorded gap or delisting, the rule passes — the
+manifest itself is the ground truth for why the bar is gone.
+
+### 15.1 `_verify_event` rules
 
 | Event type | Rule that must hold |
 | --- | --- |
-| `split` | A bar exists at `(symbol, event_date)` and a previous bar exists for the symbol; `0.5 < close * ratio / previous_close < 2.0` (price continuity across the adjustment). |
+| `split` | The bar exists at the resolved `(symbol, event_date)` and a previous bar exists; `0.5 < close * ratio / previous_close < 2.0` (price continuity across the adjustment). An absence explained by a recorded gap or delisting passes. |
 | `dividend` | The payload contains `amount`. |
-| `restatement` | A bar exists at `(symbol, event_date)` and `abs(close - payload["new"]) <= 1e-4`. |
-| `bad_tick` | A bar exists at `(symbol, event_date)` and `abs(high - payload["value"]) <= 1e-4`. |
-| `late_record`, `backfill` | A bar exists, its `as_of` is not null, and `as_of > datetime.combine(event_date, 23:59:59)` — delivery strictly after the trade day. |
+| `restatement` | The bar exists at the resolved `(symbol, event_date)` and `abs(close - payload["new"]) <= 1e-4`; an explained absence passes. |
+| `bad_tick` | The bar exists at the resolved `(symbol, event_date)` and `abs(high - payload["value"]) <= 1e-4`; an explained absence passes. |
+| `late_record`, `backfill` | The bar exists at the resolved `(symbol, event_date)`, its `as_of` is not null, and `as_of > datetime.combine(event_date, 23:59:59)` — delivery strictly after the trade day; an explained absence passes. |
 | `data_gap` | Every date in `payload["missing_dates"]` is absent from the bars. |
 | `delisting` | No bar for the symbol after `event_date`; the symbol is present in the reference table. |
 | `symbol_change` | No bar with the old symbol at or after `event_date`; no bar with the new symbol before `event_date`. |
 
-**Helpers (private).** `_prev_bar_date(bars_idx, symbol, d)` returns the latest
-bar date for the symbol strictly before `d`, or `None`. `_signature(schema)`
-returns `(field name, type string)` pairs, normalizing every timestamp field to
-`timestamp[unit]` because the Parquet round trip may alter the timezone
-attribute; comparison is therefore unit-aware and timezone-agnostic.
+**Helpers (private).** `_bar_at(bars_idx, symbol, d, renames)` resolves the
+symbol at date `d` through the rename index and returns the bar, if present.
+`_resolve_symbol(symbol, d, renames)` maps a symbol through its recorded rename.
+`_absence_explained(symbol, d, gap_days, delist_dates)` is true when a recorded
+gap or delisting removed the bar. `_prev_bar_key(bars_idx, symbols, d)` returns
+the latest bar key strictly before `d` among the given symbols, or `None`.
+`_signature(schema)` returns `(field name, type string)` pairs, normalizing
+every timestamp field to `timestamp[unit]` because the Parquet round trip may
+alter the timezone attribute; comparison is therefore unit-aware and
+timezone-agnostic.
 
-## 15. `marketforge.cli` and `__main__`
+## 16. `marketforge.catalog`
+
+```python
+@dataclass(frozen=True)
+class DatasetSpec:
+    name: str
+    version: int
+    schema: pa.Schema
+    partition_cols: tuple[str, ...] = ()
+    pit_field: str | None = None
+    lineage: tuple[str, ...] = ()
+```
+
+```python
+REGISTRY: dict[str, DatasetSpec]
+```
+
+```python
+def get_spec(name: str) -> DatasetSpec
+```
+
+```python
+def list_datasets() -> tuple[str, ...]
+```
+
+```python
+def registry_to_json() -> str
+```
+
+```python
+def registry_from_json(text: str) -> dict[str, DatasetSpec]
+```
+
+**Contract.** The dataset registry is the milestone M1.1 record
+`name → schema, partitioning, point-in-time, lineage`. It is a code artifact on
+purpose (the top-level `catalog/` directory is git-ignored as generated
+storage). `get_spec` raises `KeyError` with the list of valid names for an
+unknown dataset. `partition_cols` is the hive-partitioning column order;
+`pit_field` names the point-in-time delivery column (`"as_of"` where
+applicable); `lineage` is a short "source → transform" chain of strings.
+
+`registry_to_json` serializes the metadata (version, partition columns,
+point-in-time field, lineage, and field names and types) without schema
+objects; `registry_from_json` rebuilds specs and always looks schemas up from
+`marketforge.schemas.SCHEMAS` by name, so the JSON can never smuggle in a
+schema the code does not define.
+
+Registered datasets: `reference`, `bars`, `coverage`, `manifest` (Phase 0),
+and `ticks`, `quotes`, `events` (Phase 1 contracts). `bars`, `ticks`, `quotes`,
+and `events` declare `partition_cols=("symbol",)` and `pit_field="as_of"`; the
+rest are unpartitioned with no point-in-time field.
+
+## 17. `marketforge.ingest`
+
+```python
+class SchemaContractError(ValueError): ...
+```
+
+```python
+def ingest_dataset(name: str, source_dir: Path, lakehouse_dir: Path) -> dict[str, Path]
+```
+
+**Contract.** The milestone M1.1 ingestion path. Reads
+`<source_dir>/<name>.parquet`, compares its schema signature against the
+registry contract (`get_spec`), and lands the dataset under
+`<lakehouse_dir>/<name>` — hive-partitioned by the declared partition columns
+(symbol) when the contract declares them, a plain `part-0.parquet` otherwise.
+Returns `{"dataset": <target path>}`.
+
+**Errors.** Raises `SchemaContractError` when the source schema signature does
+not match the contract; raises `KeyError` (from `get_spec`) for an unregistered
+dataset name.
+
+**Postconditions.** The target directory exists; the landed dataset's schema
+matches the registry contract; partitioned datasets carry `symbol=<value>`
+hive directories readable with `pyarrow.dataset.dataset(..., partitioning="hive")`.
+
+## 18. `marketforge.cli` and `__main__`
 
 ```python
 app = typer.Typer(
@@ -590,11 +854,13 @@ same Typer app. `marketforge/__init__.py` exposes `__version__ = "0.1.0"`.
 
 | Command | Options (name, type, default) | Behavior | Exit code |
 | --- | --- | --- | --- |
-| `gen` | `--seed` int `42`; `--universe-size` int `50`; `--start` string `"2023-01-02"`; `--end` string `"2024-12-31"`; `--out-dir` string `"data/synthetic"` | Builds a `GeneratorConfig` from the options (dates parsed with `date.fromisoformat`; currency and exchange keep their defaults), runs `generate`, echoes one line per written file. | `0`; Typer's error exit for unparsable input |
+| `gen` | `--seed` int `42`; `--universe-size` int `50`; `--start` string `"2023-01-02"`; `--end` string `"2024-12-31"`; `--out-dir` string `"data/synthetic"` | Builds a `GeneratorConfig` from the options (dates parsed with `date.fromisoformat`; currency, exchange, and coverage keep their defaults), runs `generate`, echoes one line per written file. | `0`; Typer's error exit for unparsable input |
 | `verify` | `--data-dir` string `"data/synthetic"` | Runs `verify`, prints every report line, then `VERIFY OK` or `VERIFY FAILED`. | `0` on success, `1` on failure |
-| `schema` | none | Prints `reference`, `bars`, and `manifest` schemas field by field. | `0` |
+| `schema` | none | Prints all seven production schemas field by field. | `0` |
+| `datasets` | none | Lists the registry: version, partition columns, point-in-time field, and lineage per dataset. | `0` |
+| `ingest` | `dataset` string (argument); `--source-dir` string `"data/synthetic"`; `--lakehouse` string `"lake"` | Runs `ingest_dataset` and echoes the landed path. | `0`; Typer's error exit for unparsable input or a contract violation |
 
-## 16. Contract change protocol
+## 19. Contract change protocol
 
 - **Signature, shape, sequence, artifact, or command changes** must update this
   document in the same pull request; structural changes must also update
@@ -604,12 +870,12 @@ same Typer app. `marketforge/__init__.py` exposes `__version__ = "0.1.0"`.
   breaking changes to the data contract: state them explicitly in the pull
   request and update section 3.1 and the affected module section.
 - **Schema changes** follow the evolution protocol in `agents.md` and section
-  7.5: prefer adding fields; define absence semantics; enforce requiredness in
+  7.8: prefer adding fields; define absence semantics; enforce requiredness in
   the quality gate; carry schema, generator, verification, tests, and the
   dataset registry in one pull request with the reason.
 - **Decision changes** are recorded in `docs/thoughts/` and reflected here.
 
-## 17. Testing contract
+## 20. Testing contract
 
 One test module per source module, plus cross-cutting tests; shared fixtures in
 `tests/conftest.py`.
@@ -619,12 +885,15 @@ One test module per source module, plus cross-cutting tests; shared fixtures in
 | `tests/conftest.py` | `small_config`: a fast universe of eight symbols from `2023-01-02` to `2023-12-29`, seed `42`. |
 | `tests/test_bars.py` | `generate_bars` |
 | `tests/test_universe.py` | `build_reference` |
+| `tests/test_coverage.py` | `build_coverage`, `coverage_to_json`, tier assignment and slice ordering, artifact writing, and median-volume tier recovery |
 | `tests/test_events.py` | `apply_events` |
 | `tests/test_manifest.py` | `build_manifest`, `manifest_to_json` |
 | `tests/test_export.py` | `export` |
-| `tests/test_verify.py` | `verify` |
+| `tests/test_verify.py` | `verify`, including coverage checks, the cross-event resolution helpers, and the default-universe regression |
+| `tests/test_catalog.py` | the registry: dataset coverage, point-in-time fields, partition columns, and the JSON round trip |
+| `tests/test_ingest.py` | `ingest_dataset`: partitioned and unpartitioned landings, schema-mismatch rejection, unknown datasets |
 | `tests/test_rng.py` | `make_rng` |
-| `tests/test_cli.py` | the three commands |
+| `tests/test_cli.py` | the five commands |
 | `tests/test_determinism.py` | byte-identical artifacts across runs and directories for one seed; different bytes for a different seed |
 | `tests/test_duckdb.py` | DuckDB can read `bars.parquet` and count rows |
 

@@ -7,13 +7,10 @@ from pathlib import Path
 
 import typer
 
+from marketforge.catalog import REGISTRY
 from marketforge.config import GeneratorConfig, UniverseConfig
-from marketforge.schemas import (
-    BARS_SCHEMA,
-    COVERAGE_SCHEMA,
-    MANIFEST_SCHEMA,
-    REFERENCE_SCHEMA,
-)
+from marketforge.ingest import ingest_dataset
+from marketforge.schemas import SCHEMAS
 from marketforge.synthetic.generate import generate
 from marketforge.verify import verify as verify_dataset
 
@@ -63,16 +60,34 @@ def verify(
 @app.command()
 def schema() -> None:
     """Print the production schemas."""
-    for name, s in (
-        ("reference", REFERENCE_SCHEMA),
-        ("bars", BARS_SCHEMA),
-        ("coverage", COVERAGE_SCHEMA),
-        ("manifest", MANIFEST_SCHEMA),
-    ):
+    for name, s in SCHEMAS.items():
         typer.echo(f"{name}:")
         for field in s:
             typer.echo(f"  {field.name}: {field.type}")
         typer.echo()
+
+
+@app.command()
+def datasets() -> None:
+    """List the registered datasets and their contracts."""
+    for name, spec in REGISTRY.items():
+        partition = ",".join(spec.partition_cols) or "-"
+        pit = spec.pit_field or "-"
+        lineage = " -> ".join(spec.lineage)
+        typer.echo(
+            f"{name}: version={spec.version} partition=({partition}) pit={pit} lineage={lineage}"
+        )
+
+
+@app.command()
+def ingest(
+    dataset: str = typer.Argument(..., help="Dataset name (see `marketforge datasets`)"),
+    source_dir: str = typer.Option("data/synthetic", help="Directory holding <name>.parquet"),
+    lakehouse: str = typer.Option("lake", help="Lakehouse root directory"),
+) -> None:
+    """Land a dataset in the lakehouse layout per its registry contract."""
+    out = ingest_dataset(dataset, Path(source_dir), Path(lakehouse))
+    typer.echo(f"Ingested {dataset} into {out['dataset']}")
 
 
 if __name__ == "__main__":
