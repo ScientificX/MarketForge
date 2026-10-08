@@ -55,11 +55,17 @@ These rules override convenience, speed, and any habit you bring with you.
    introduce hidden state, wall-clock dependence, unordered iteration that
    changes output, or non-seeded randomness.
 
-4. **Treat the data schemas as a stable contract.** The PyArrow schemas in
-   `src/marketforge/schemas.py` are the shared contract between the synthetic
+4. **Treat the data schemas as a shared, deliberately evolved contract.** The
+   PyArrow schemas in `src/marketforge/schemas.py` are the contract between the
    generator and the future real-data ingestion layer. Do not rename, retype, or
-   reorder fields casually. Any schema change is a breaking change and must be
-   deliberate, documented, and carried through every consumer and test.
+   reorder fields casually, and never change a schema silently. Schema changes
+   are allowed and expected while the phases are young, under a protocol: prefer
+   adding fields over renaming or retyping; for every new field, state what its
+   absence means; enforce required presence through the quality gate (pandera
+   from Phase 1), never through storage-level nullability, which Parquet does
+   not persist; and carry the schema, the generator, verification, the tests,
+   and (from Phase 1) the dataset registry in one pull request, recording the
+   reason.
 
 5. **Respect the trading guardrail.** This project paper-trades first, for
    months, with toy money the owner can afford to lose. Do not build, promise, or
@@ -223,7 +229,10 @@ does not wrap, use `uv run <command>`.
 ## 9. Data contracts and determinism
 
 - The production schemas in `src/marketforge/schemas.py` are the shared contract
-  between the generator and future real-data ingestion. Keep them stable.
+  between the generator and future real-data ingestion. Change them deliberately
+  and atomically — never silently. Prefer adding fields over renaming or
+  retyping, define what absence means for each new field, and enforce required
+  presence in the quality gate, not in storage nullability.
 - The generator exports to the same schemas real data will use, so real sources
   can be dropped in later without schema churn.
 - Determinism is a data property, not an implementation detail: the same seed
