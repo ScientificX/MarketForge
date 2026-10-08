@@ -18,11 +18,32 @@ class UniverseConfig:
 
 
 @dataclass(frozen=True)
+class CoverageConfig:
+    """Crowdedness-axis configuration: tiers and the spans each tier slices.
+
+    The tier list is ordered most-crowded first (mega-cap down to micro-cap).
+    ``adv_lo``/``adv_hi`` bound the average-daily-volume span and
+    ``market_cap_lo``/``market_cap_hi`` bound the market-capitalisation span;
+    both are sliced into one log-spaced, disjoint range per tier. ``volume_noise``
+    is the log-normal standard deviation of daily volume around each name's
+    average daily volume.
+    """
+
+    tiers: tuple[str, ...] = ("mega", "large", "mid", "small", "micro")
+    adv_lo: int = 20_000
+    adv_hi: int = 20_000_000
+    market_cap_lo: float = 20_000_000.0
+    market_cap_hi: float = 200_000_000_000.0
+    volume_noise: float = 0.35
+
+
+@dataclass(frozen=True)
 class GeneratorConfig:
     """Top-level generator configuration (seed + universe + price + events)."""
 
     seed: int = 42
     universe: UniverseConfig = UniverseConfig()
+    coverage: CoverageConfig = CoverageConfig()
     start_price_range: tuple[float, float] = (5.0, 500.0)
     annual_vol: tuple[float, float] = (0.15, 0.60)
     annual_drift: float = 0.05

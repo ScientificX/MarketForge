@@ -12,6 +12,8 @@ def test_gen_and_verify(tmp_path):
     res = runner.invoke(app, ["gen", "--out-dir", str(out), "--universe-size", "8"])
     assert res.exit_code == 0, res.output
     assert (out / "bars.parquet").exists()
+    assert (out / "coverage.parquet").exists()
+    assert (out / "coverage.json").exists()
 
     res2 = runner.invoke(app, ["verify", "--data-dir", str(out)])
     assert res2.exit_code == 0, res2.output

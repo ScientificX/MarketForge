@@ -10,6 +10,8 @@ import pyarrow.parquet as pq
 from marketforge.schemas import (
     BARS_FIELDS,
     BARS_SCHEMA,
+    COVERAGE_FIELDS,
+    COVERAGE_SCHEMA,
     MANIFEST_FIELDS,
     MANIFEST_SCHEMA,
     REFERENCE_FIELDS,
@@ -18,13 +20,20 @@ from marketforge.schemas import (
 
 
 def export(
-    reference: list[dict], bars: list[dict], manifest: list[dict], out_dir: Path
+    reference: list[dict],
+    bars: list[dict],
+    coverage: list[dict],
+    manifest: list[dict],
+    out_dir: Path,
 ) -> dict[str, Path]:
-    """Write ``reference``, ``bars``, and ``manifest`` as Parquet using production schemas."""
+    """Write the datasets (reference, bars, coverage, manifest) as Parquet."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ref_table = pa.Table.from_pydict(_columns(reference, REFERENCE_FIELDS), schema=REFERENCE_SCHEMA)
     bars_table = pa.Table.from_pydict(_columns(bars, BARS_FIELDS), schema=BARS_SCHEMA)
+    coverage_table = pa.Table.from_pydict(
+        _columns(coverage, COVERAGE_FIELDS), schema=COVERAGE_SCHEMA
+    )
     manifest_table = pa.Table.from_pydict(
         _columns(manifest, MANIFEST_FIELDS), schema=MANIFEST_SCHEMA
     )
@@ -32,10 +41,12 @@ def export(
     paths = {
         "reference": out_dir / "reference.parquet",
         "bars": out_dir / "bars.parquet",
+        "coverage": out_dir / "coverage.parquet",
         "manifest": out_dir / "manifest.parquet",
     }
     pq.write_table(ref_table, paths["reference"])
     pq.write_table(bars_table, paths["bars"])
+    pq.write_table(coverage_table, paths["coverage"])
     pq.write_table(manifest_table, paths["manifest"])
     return paths
 

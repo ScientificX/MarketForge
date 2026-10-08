@@ -6,6 +6,7 @@ from marketforge.config import GeneratorConfig, UniverseConfig
 from marketforge.rng import make_rng
 from marketforge.schemas import EVENT_TYPES
 from marketforge.synthetic.bars import generate_bars
+from marketforge.synthetic.coverage import build_coverage
 from marketforge.synthetic.events import apply_events
 from marketforge.synthetic.universe import build_reference
 
@@ -21,7 +22,8 @@ def _run(event_type: str):
     )
     rng = make_rng(cfg.seed)
     ref = build_reference(cfg.universe, rng)
-    bars = generate_bars(ref, cfg, rng)
+    coverage = build_coverage(ref, cfg, rng)
+    bars = generate_bars(ref, coverage, cfg, rng)
     bars, events = apply_events(bars, ref, cfg, rng)
     return ref, bars, events
 

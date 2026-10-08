@@ -60,7 +60,22 @@ MANIFEST_SCHEMA = pa.schema(
     ]
 )
 
+# Ground-truth crowdedness axis: which tier each symbol belongs to, plus the
+# latent capacity and liquidity values behind it. This is a separate artifact on
+# purpose — the tier is ground truth and must never become a column of the
+# production schemas (reference/bars/manifest), so Phase 4's crowdedness ranking
+# can be tested for whether it recovers the tier from observables alone.
+COVERAGE_SCHEMA = pa.schema(
+    [
+        pa.field("symbol", pa.string()),
+        pa.field("tier", pa.string()),
+        pa.field("market_cap", pa.float64()),
+        pa.field("avg_daily_volume", pa.int64()),
+    ]
+)
+
 # Field order used when building Arrow tables from row dicts.
 REFERENCE_FIELDS = [f.name for f in REFERENCE_SCHEMA]
 BARS_FIELDS = [f.name for f in BARS_SCHEMA]
 MANIFEST_FIELDS = [f.name for f in MANIFEST_SCHEMA]
+COVERAGE_FIELDS = [f.name for f in COVERAGE_SCHEMA]
