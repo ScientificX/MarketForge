@@ -29,7 +29,7 @@ def _run(event_type: str):
 def test_split():
     _, bars, events = _run("split")
     assert events and all(e["event_type"] == "split" for e in events)
-    by = {}
+    by: dict[str, list[dict]] = {}
     for r in bars:
         by.setdefault(r["symbol"], []).append(r)
     for e in events:

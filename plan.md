@@ -212,6 +212,3 @@ Phase 5 ≈ 1–2.
 
 Scaffold **Phase 0**: repo, devcontainer, CI, and the synthetic equity data
 generator with ground-truth manifest.
-
-
-
