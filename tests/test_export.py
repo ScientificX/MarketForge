@@ -3,7 +3,7 @@ from __future__ import annotations
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from marketforge.schemas import BARS_SCHEMA, MANIFEST_SCHEMA, REFERENCE_SCHEMA
+from marketforge.schemas import BARS_SCHEMA, COVERAGE_SCHEMA, MANIFEST_SCHEMA, REFERENCE_SCHEMA
 from marketforge.synthetic.generate import generate
 
 
@@ -22,6 +22,7 @@ def test_schemas_conform(small_config, tmp_path):
     generate(small_config, tmp_path)
     assert _sig(pq.read_table(tmp_path / "reference.parquet").schema) == _sig(REFERENCE_SCHEMA)
     assert _sig(pq.read_table(tmp_path / "bars.parquet").schema) == _sig(BARS_SCHEMA)
+    assert _sig(pq.read_table(tmp_path / "coverage.parquet").schema) == _sig(COVERAGE_SCHEMA)
     assert _sig(pq.read_table(tmp_path / "manifest.parquet").schema) == _sig(MANIFEST_SCHEMA)
 
 

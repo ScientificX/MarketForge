@@ -151,9 +151,12 @@ point-in-time/survivorship-bias logic is source-agnostic.
 **M0.2 — Synthetic equity market-data generator**
 - Deliverables: seeded generator + ground-truth manifest + injected events +
   Parquet export, with a **crowdedness axis** (mega-cap → thin small/mid-cap).
-- Status: generator, manifest, events and Parquet export are delivered and
-  accepted; the **crowdedness axis** is not yet implemented — see
-  [docs/thoughts/07](docs/thoughts/07-synthetic-market-structure.md).
+- Status: delivered and accepted, including the **crowdedness axis** — liquidity
+  and capacity are tiered (tiered volume and price), and each name's tier is
+  recorded as ground truth in a separate artifact (`coverage.parquet` /
+  `coverage.json`), never as a column of the production schemas. Verification
+  also resolves cross-event interactions (a bar removed or renamed by a later
+  recorded event) through the manifest.
 - Acceptance: same seed → byte-identical output; every injected event is
   verifiable against the manifest; output uses the production schemas.
 
@@ -283,18 +286,16 @@ screener has no ground truth to measure recall against, or the Phase 3 leakage
 test cannot distinguish a seeded leak from noise.
 
 This deferral concerns *statistical* structure only. The **crowdedness axis** —
-a separate Phase 0 deliverable that M0.2 promised but did not ship — is not
-deferred here; it remains an open item in the Next step below. A *fully*
-recoverable axis (the index-correlation and beta dimensions) does, however,
-depend on the cross-sectional structure described in
+a separate Phase 0 deliverable that M0.2 promised but did not ship — was not
+deferred here, and has since been delivered (tiered liquidity and capacity, with
+tier ground truth in the coverage artifact). A *fully* recoverable axis (the
+index-correlation and beta dimensions) does, however, depend on the
+cross-sectional structure described in
 [docs/thoughts/07](docs/thoughts/07-synthetic-market-structure.md) (angle B).
 
 ## Next step
 
-Phase 1 (ingestion + schema contracts + dataset registry). In parallel, finish
-the Phase 0 **crowdedness axis** — at minimum, differentiate liquidity and
-capacity across the synthetic universe (tiered volume and price or
-capitalization) and record each name's tier as ground truth in a separate
-artifact, so Phase 4's ranking can be tested for whether it recovers the true
-thin-to-crowded ordering. The index-correlation and beta-based dimensions of
-that axis are coupled to the statistical-structure work deferred above.
+Phase 1 (ingestion + schema contracts + dataset registry), beginning with
+milestone M1.1: unified schemas (bars, ticks, quotes, reference, events), a
+dataset registry (`name → schema, partitioning, point-in-time, lineage`), and
+the ingestion path that lands data in the lakehouse layout.

@@ -8,7 +8,12 @@ from pathlib import Path
 import typer
 
 from marketforge.config import GeneratorConfig, UniverseConfig
-from marketforge.schemas import BARS_SCHEMA, MANIFEST_SCHEMA, REFERENCE_SCHEMA
+from marketforge.schemas import (
+    BARS_SCHEMA,
+    COVERAGE_SCHEMA,
+    MANIFEST_SCHEMA,
+    REFERENCE_SCHEMA,
+)
 from marketforge.synthetic.generate import generate
 from marketforge.verify import verify as verify_dataset
 
@@ -61,6 +66,7 @@ def schema() -> None:
     for name, s in (
         ("reference", REFERENCE_SCHEMA),
         ("bars", BARS_SCHEMA),
+        ("coverage", COVERAGE_SCHEMA),
         ("manifest", MANIFEST_SCHEMA),
     ):
         typer.echo(f"{name}:")

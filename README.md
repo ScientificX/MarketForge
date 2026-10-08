@@ -34,7 +34,7 @@ screener.
 | Milestone | Status |
 | --- | --- |
 | M0.1 — repo, toolchain, devcontainer, CI, Makefile | ✅ done |
-| M0.2 — seeded synthetic generator + ground-truth manifest | ✅ done (generator, manifest, schemas, determinism; the crowdedness axis is outstanding — see [07](docs/thoughts/07-synthetic-market-structure.md)) |
+| M0.2 — seeded synthetic generator + ground-truth manifest | ✅ done (generator, manifest, schemas, determinism, and the crowdedness axis) |
 | M1–M2 — lakehouse + historical reconstructor | ⬜ planned |
 | M3 — tick processing + feature store | ⬜ planned |
 | M4 — stat-arb screener + honest backtest (the point) | ⬜ planned |
@@ -89,12 +89,15 @@ make ci
 | Dataset | Contents |
 | --- | --- |
 | `reference.parquet` | symbol, name, sector, listing date, currency, exchange |
-| `bars.parquet` | daily OHLCV (raw, as-traded) + nullable `as_of` delivery time |
+| `bars.parquet` | daily open, high, low, close, and volume bars (raw, as-traded) + nullable `as_of` delivery time |
+| `coverage.parquet` / `coverage.json` | crowdedness-axis ground truth: each symbol's tier (mega down to micro) with its latent market capitalisation and average daily volume |
 | `manifest.parquet` / `manifest.json` | ground-truth log of every injected event |
 
 The generator injects and records splits, dividends, delistings, symbol changes,
 restatements, data gaps, bad ticks, and late/backfilled records — so later phases
-have provable ground truth to reconstruct against.
+have provable ground truth to reconstruct against. Volume and price are tiered
+across the crowdedness axis, so the tier can be recovered from the bars alone;
+the tier itself is recorded only in the coverage artifact.
 
 ## Environment
 
