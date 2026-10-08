@@ -326,3 +326,7 @@ A change is finished only when all of the following hold:
 - When a decision is changed rather than implemented, record the reasoning in
   `docs/thoughts/` as usual and update the design documents to match the new
   decision.
+- The design documents contain Python code blocks, and ruff formats Python code
+  blocks inside Markdown files; keep those blocks in ruff's canonical form by
+  running `make fmt` (or `uv run ruff format`) before committing, so the full
+  gate (`make ci`) stays green.
