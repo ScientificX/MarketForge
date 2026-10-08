@@ -21,6 +21,10 @@ portfolio demo. [`../plan.md`](../plan.md) is the **what**; these docs are the
 - [06 — The repositioning: less crowded](06-refocus-usable-tool.md) — why
   MarketForge became a usable stat-arb tool targeting less-crowded markets, and
   what "less crowded" means in practice.
+- [07 — Synthetic market structure (deferred)](07-synthetic-market-structure.md) —
+  why the Phase 0 corpus stays a correctness and *null* harness for now, the
+  structure angles considered, and why they would still matter after real data
+  arrives.
 
 ## Decision tree at a glance
 
