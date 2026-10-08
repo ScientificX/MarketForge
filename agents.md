@@ -30,11 +30,12 @@ profit-and-loss number. Do not let a task drift toward a portfolio demo.
 
 These rules override convenience, speed, and any habit you bring with you.
 
-1. **Never modify the `main` branch directly.** Always create a new branch for
-   any change, however small. `main` is protected: no direct commits, no direct
-   pushes, no working-tree edits intended for `main`. All work — features,
-   bug fixes, documentation, refactors — happens on a branch and reaches `main`
-   only through a reviewed pull request.
+1. **Never modify the `main` branch directly.** Do each task in its own worktree
+   on a new branch, and leave the main checkout on `main`, clean. `main` is
+   protected: no direct commits, no direct pushes, no working-tree edits intended
+   for `main`. All work — features, bug fixes, documentation, refactors — happens
+   in a worktree on a branch and reaches `main` only through a reviewed pull
+   request.
 
 2. **Write plans in full words — strongly avoid abbreviations.** In any plan,
    implementation proposal, milestone description, design note, commit-message
@@ -70,8 +71,8 @@ These rules override convenience, speed, and any habit you bring with you.
    do not declare work finished until the criteria actually pass.
 
 7. **Always open a pull request for finished work.** When a change is complete,
-   push its branch and open a pull request so it can be reviewed and merged.
-   Never leave finished work as an unpushed local branch, and never merge to
+   push its branch and open a pull request into `main` so it can be reviewed and
+   merged. Never leave finished work as an unpushed branch, and never merge to
    `main` yourself.
 
 ---
@@ -89,8 +90,8 @@ These rules override convenience, speed, and any habit you bring with you.
    statistical-arbitrage screener, and paper trading — are planned but not built.
    Do not build ahead of the current phase unless the task explicitly asks for it.
 
-3. **Create a branch first.** See the branching rules below. There is no task so
-   small that it justifies working on `main`.
+3. **Create a worktree first.** See the worktree rules below. Every task gets its
+   own worktree on a new branch; never work in the main checkout.
 
 4. **Plan before code, in full words.** Write a short plan stating what will
    change and how you will verify it, using no abbreviations. For anything larger
@@ -98,20 +99,39 @@ These rules override convenience, speed, and any habit you bring with you.
 
 ---
 
-## 4. Branching and commits
+## 4. Worktrees, branches, and commits
 
-- Branch from an up-to-date `main`.
-- Name branches in kebab-case with a short type prefix, for example `feature/`,
-  `fix/`, `docs/`, `chore/`, or `refactor/`. Existing branches already follow this
-  style (`phase-0-foundations`, `reposition-statarb-tool`).
+The default is **one worktree per task**, so parallel agents never collide in a
+shared working directory. The main checkout stays on `main`, clean, at all times.
+
+- Start every task from an up-to-date `main`:
+
+      git fetch origin
+      git worktree add ../MarketForge-<task-slug> -b <branch-name> origin/main
+
+- The worktree lives in a sibling directory (`../MarketForge-<task-slug>`); the
+  slug is short and kebab-case, and the branch name follows the same convention
+  with a type prefix, for example `feature/`, `fix/`, `docs/`, `chore/`, or
+  `refactor/`.
+- Do all work inside that worktree directory. Never share a worktree between two
+  tasks or two agents.
+- A new worktree starts without the `.venv` or `data/` directories (they are
+  git-ignored and are not copied), so run `uv sync` — and `make up` if the task
+  needs Redpanda — inside the worktree before running anything.
 - Never commit to `main`. Never push directly to `main`. `main` changes only by
   merging a reviewed pull request.
-- Always push your branch and open a pull request when the change is finished;
-  the pull request is the only path into `main`.
+- When the work is done and committed, push the branch and open a pull request
+  into `main`; the pull request is the only path into `main`.
 - Write commit messages with a concise imperative subject line, for example
   "Add the statistical-arbitrage screener". When a body is needed to explain a
   plan or rationale, write it in full words with no abbreviations.
 - Keep commits small and single-purpose: one logical change per commit.
+- After the pull request is merged and the worktree is clean, remove it:
+
+      git worktree remove ../MarketForge-<task-slug>
+
+  If the directory was deleted by hand, run `git worktree prune` to clear the
+  stale record.
 
 ---
 
@@ -265,8 +285,8 @@ build a later phase's machinery before its phase unless the task says so.
 
 A change is finished only when all of the following hold:
 
-- It lives on a branch, not on `main`.
-- Its branch is pushed and a pull request is open for it.
+- It lives in its own worktree on a branch, not on `main`.
+- Its branch is pushed and a pull request into `main` is open for it.
 - It is covered by tests, and the full gate (`make ci`) passes.
 - Any plan or design text it introduces is written in full words with no
   abbreviations.
