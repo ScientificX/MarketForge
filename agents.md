@@ -69,6 +69,11 @@ These rules override convenience, speed, and any habit you bring with you.
    acceptance criteria. Those are the definition of done. Do not gold-plate, and
    do not declare work finished until the criteria actually pass.
 
+7. **Always open a pull request for finished work.** When a change is complete,
+   push its branch and open a pull request so it can be reviewed and merged.
+   Never leave finished work as an unpushed local branch, and never merge to
+   `main` yourself.
+
 ---
 
 ## 3. Before you start any task
@@ -101,6 +106,8 @@ These rules override convenience, speed, and any habit you bring with you.
   style (`phase-0-foundations`, `reposition-statarb-tool`).
 - Never commit to `main`. Never push directly to `main`. `main` changes only by
   merging a reviewed pull request.
+- Always push your branch and open a pull request when the change is finished;
+  the pull request is the only path into `main`.
 - Write commit messages with a concise imperative subject line, for example
   "Add the statistical-arbitrage screener". When a body is needed to explain a
   plan or rationale, write it in full words with no abbreviations.
@@ -259,6 +266,7 @@ build a later phase's machinery before its phase unless the task says so.
 A change is finished only when all of the following hold:
 
 - It lives on a branch, not on `main`.
+- Its branch is pushed and a pull request is open for it.
 - It is covered by tests, and the full gate (`make ci`) passes.
 - Any plan or design text it introduces is written in full words with no
   abbreviations.
