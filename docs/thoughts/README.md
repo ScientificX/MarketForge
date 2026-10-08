@@ -1,9 +1,10 @@
 # Thoughts & decision log
 
 This directory records the *reasoning* behind the MarketForge plan: the skills
-analysis, the project ideas explored and rejected, and the decision paths walked
-to arrive at [`../plan.md`](../plan.md). `plan.md` is the **what**; these docs
-are the **why**.
+analysis, the project ideas explored and rejected, the decision paths walked,
+and the repositioning that made MarketForge a usable tool rather than a
+portfolio demo. [`../plan.md`](../plan.md) is the **what**; these docs are the
+**why**.
 
 ## How to read
 
@@ -17,6 +18,9 @@ are the **why**.
   and the locked toolchain with per-tool reasoning.
 - [05 — Money & trading](05-money-and-trading.md) — the earning-money reality
   check, and the toy-trading guardrail.
+- [06 — The repositioning: less crowded](06-refocus-usable-tool.md) — why
+  MarketForge became a usable stat-arb tool targeting less-crowded markets, and
+  what "less crowded" means in practice.
 
 ## Decision tree at a glance
 
@@ -30,6 +34,9 @@ Scala risk project (continue?)
                                       ├─ order: 1 → 3 → 2
                                       ├─ data: synthetic-first, equity-style
                                       ├─ env: WSL2/Linux
-                                      ├─ money: the portfolio (not alpha)
                                       └─ stat-arb: validation layer, then paper/toy trading
+                                          │
+                                          └─ reposition: usable stat-arb TOOL,
+                                             less-crowded markets (equities + crypto),
+                                             stat-arb = the point, not validation
 ```

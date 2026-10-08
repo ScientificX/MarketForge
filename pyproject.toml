@@ -1,7 +1,7 @@
 [project]
 name = "marketforge"
 version = "0.1.0"
-description = "Equity market-data lakehouse + seeded synthetic data generator"
+description = "A tool for finding statistical-arbitrage opportunities in less crowded markets"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [

@@ -59,3 +59,23 @@ performance rather than data. They remain valuable and could be layered on later
 (e.g. an options-vol layer on top of MarketForge), but they are not the spine of
 a data-engineering portfolio. E and F are data projects but lower signal-to-effort than the
 lakehouse spine.
+
+## Round 4 — the repositioning pivot
+
+(After "make the project a real, usable tool for finding statistical arbitrage
+in less crowded markets.")
+
+The data-first selection stood, but the *framing* changed: from "a data platform
+that demonstrates engineering" to "a **usable tool** for finding stat-arb
+opportunities in **less-crowded markets**." Two ideas came in:
+
+1. **The tool is the point.** The lakehouse / reconstructor / feature store
+   become the trust substrate — the reason the tool's opportunities are real —
+   rather than the headline deliverable.
+2. **Less crowded is the edge.** Large-cap pairs are crowded and their edge is
+   arbed away; the tool targets less-covered equities (small/mid caps,
+   cross-listings) plus crypto (perp↔spot, cross-exchange) as a complement.
+
+This did not resurrect the earlier "strategy-first" idea. The strategy layer is
+still a *consumer* of the platform — but now it is the consumer the whole
+platform exists to serve. See [06](06-refocus-usable-tool.md).

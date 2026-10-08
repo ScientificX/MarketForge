@@ -2,7 +2,9 @@
 
 ## Skills to demonstrate
 
-A data-engineering portfolio should show:
+The project builds data-engineering skills by **shipping a usable tool** — a
+statistical-arbitrage screener for less-crowded markets — rather than by
+assembling a demo. In doing so it exercises:
 
 - building **algorithms, processes and datasets** that turn raw data into revenue
 - **optimising quant code and algorithms**, analysing data, and developing **modelling features**
@@ -31,6 +33,15 @@ data-engineering profile. Hence: a **new Python project**.
 Systems, not scripts: multiple subsystems, real data at scale, a hard
 correctness or performance bar, and a measurable outcome. This shaped the final
 multi-phase plan (foundation → correctness → scale → research → trading).
+
+## The repositioning (a tool, not a demo)
+
+The plan was originally framed as a *portfolio demo* ("data as a product" for
+its own sake). It is now framed as a **usable tool**: a screener that a
+researcher or trader could run to surface stat-arb opportunities in less-crowded
+markets. This is a stronger demonstration of the same competencies — the data
+pipeline exists to serve a real workflow, and the tool's correctness
+(point-in-time, survivorship-bias-free) is what makes its output worth trusting.
 
 ## How the competencies map to MarketForge phases
 

@@ -41,17 +41,35 @@ Each fork we hit, with options, chosen path, and rationale.
 
 ## 8. Earning money
 - Options: monetize as a product | trade own capital | sell data/signals.
-- **Chosen: the project is a portfolio, not a product; trading is a validation
-  exercise, not an income thesis.** (See 05.)
+- **Chosen: a usable tool, not an income thesis.** Its value is surfacing real
+  opportunities honestly; trading remains toy-money. (See 05.)
 
 ## 9. Stat-arb layer purpose
-- Options: alpha generation | validation/consuming layer.
-- **Chosen: validation/consuming layer.** It proves the platform serves real
-  research; honest reporting (survivorship-bias artifacts) is the differentiator.
+- Options: alpha generation | validation/consuming layer | the point of the tool.
+- **Chosen: the point of the tool.** The platform exists so the screener can
+  surface honest, survivorship-bias-free opportunities. Honest reporting is
+  still the differentiator; alpha is still not promised.
 
 ## 10. Trading: real vs paper
 - Options: go live | paper first.
 - **Chosen: paper first, toy money only.** (See 05 guardrail.)
+
+## 11. Portfolio demo vs usable tool
+- Options: keep "data platform as portfolio demo" | make it a usable stat-arb tool.
+- **Chosen: usable tool.** The data platform becomes the trust substrate, not
+  the headline. See [06](06-refocus-usable-tool.md).
+
+## 12. Where to look for edge
+- Options: crowded large-cap pairs | less-crowded markets.
+- **Chosen: less-crowded markets.** Large-cap pairs are arbed away; less-covered
+  equities + crypto leave room. "Crowdedness" becomes a first-class ranking
+  signal in the screener (Phase 4).
+
+## 13. Universe: equity-only vs equity + crypto
+- Options: equity-only | crypto-only | equity + crypto.
+- **Chosen: equity spine + crypto complement.** Equities keep the
+  corporate-actions/survivorship-bias spine; crypto (added Phase 3/4) widens the
+  opportunity set with a structurally less-crowded, tick-rich universe.
 
 ## The one coherence discipline
 

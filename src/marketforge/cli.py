@@ -12,7 +12,10 @@ from marketforge.schemas import BARS_SCHEMA, MANIFEST_SCHEMA, REFERENCE_SCHEMA
 from marketforge.synthetic.generate import generate
 from marketforge.verify import verify as verify_dataset
 
-app = typer.Typer(help="MarketForge — synthetic equity market-data platform (Phase 0)")
+app = typer.Typer(
+    help="MarketForge — statistical arbitrage in less crowded markets "
+    "(Phase 0: synthetic data foundation)"
+)
 
 
 @app.command()
