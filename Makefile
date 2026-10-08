@@ -20,7 +20,7 @@ lint:
 
 ## Type-check the package.
 type:
-> uv run mypy src
+> uv run mypy src tests
 
 ## Auto-format.
 fmt:
@@ -31,7 +31,7 @@ fmt:
 ci:
 > uv run ruff check .
 > uv run ruff format --check .
-> uv run mypy src
+> uv run mypy src tests
 > uv run pytest
 
 ## Start the local services (Redpanda broker; DuckDB is embedded, see `duckdb` target).
