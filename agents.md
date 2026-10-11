@@ -100,7 +100,8 @@ These rules override convenience, speed, and any habit you bring with you.
    Do not build ahead of the current phase unless the task explicitly asks for it.
 
 3. **Create a worktree first.** See the worktree rules below. Every task gets its
-   own worktree on a new branch; never work in the main checkout.
+   own worktree on a new branch, created in the operating system's temporary
+   directory; never work in the main checkout.
 
 4. **Plan before code, in full words.** Write a short plan stating what will
    change and how you will verify it, using no abbreviations. For anything larger
@@ -113,15 +114,35 @@ These rules override convenience, speed, and any habit you bring with you.
 The default is **one worktree per task**, so parallel agents never collide in a
 shared working directory. The main checkout stays on `main`, clean, at all times.
 
-- Start every task from an up-to-date `main`:
+- Start every task from an up-to-date `main`, and create the worktree inside the
+  operating system's temporary directory — never inside the repository, and never
+  in a sibling directory beside it:
 
       git fetch origin
-      git worktree add ../MarketForge-<task-slug> -b <branch-name> origin/main
+      git worktree add <temporary-directory>/MarketForge-<task-slug> -b <branch-name> origin/main
 
-- The worktree lives in a sibling directory (`../MarketForge-<task-slug>`); the
-  slug is short and kebab-case, and the branch name follows the same convention
-  with a type prefix, for example `feature/`, `fix/`, `docs/`, `chore/`, or
-  `refactor/`.
+  On Windows the temporary directory is the one named by the `TEMP` environment
+  variable — `$env:TEMP` in PowerShell and `%TEMP%` at the command prompt,
+  normally `C:\Users\<you>\AppData\Local\Temp` — so on a Windows host the command
+  is for example:
+
+      git worktree add "$env:TEMP\MarketForge-tie-breaks" -b fix/tie-breaks origin/main
+
+  On the Linux and Windows Subsystem for Linux hosts it is `/tmp`, so the same
+  worktree is `/tmp/MarketForge-tie-breaks`.
+
+- The worktree lives in that temporary directory
+  (`<temporary-directory>/MarketForge-<task-slug>`); the slug is short and
+  kebab-case, and the branch name follows the same convention with a type prefix,
+  for example `feature/`, `fix/`, `docs/`, `chore/`, or `refactor/`.
+- Do not choose a worktree location of your own. One fixed location is what lets
+  a second agent run `git worktree list` and see every task that is already in
+  flight, so a worktree parked somewhere unusual reads as a task nobody is
+  running.
+- The temporary directory is not durable: a reboot, a container restart, or a
+  disk-cleanup tool can remove everything under it. The pushed branch is the only
+  durable copy of the work, so push early rather than leaving commits that exist
+  only in a temporary directory.
 - Do all work inside that worktree directory. Never share a worktree between two
   tasks or two agents.
 - A new worktree starts without the `.venv` or `data/` directories (they are
@@ -137,10 +158,12 @@ shared working directory. The main checkout stays on `main`, clean, at all times
 - Keep commits small and single-purpose: one logical change per commit.
 - After the pull request is merged and the worktree is clean, remove it:
 
-      git worktree remove ../MarketForge-<task-slug>
+      git worktree remove "$env:TEMP\MarketForge-tie-breaks"
 
-  If the directory was deleted by hand, run `git worktree prune` to clear the
-  stale record.
+  Use `git worktree remove /tmp/MarketForge-tie-breaks` on the Linux and Windows
+  Subsystem for Linux hosts. If the directory was deleted by hand, or reclaimed by
+  a reboot or a disk-cleanup tool, run `git worktree prune` to clear the stale
+  record.
 
 ---
 
@@ -299,7 +322,8 @@ build a later phase's machinery before its phase unless the task says so.
 
 A change is finished only when all of the following hold:
 
-- It lives in its own worktree on a branch, not on `main`.
+- It lives in its own worktree on a branch, not on `main`, with that worktree
+  created in the temporary directory as section 4 requires.
 - Its branch is pushed and a pull request into `main` is open for it.
 - It is covered by tests, and the full gate (`make ci`) passes.
 - Any plan or design text it introduces is written in full words with no
